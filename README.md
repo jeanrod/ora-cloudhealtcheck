@@ -1,6 +1,6 @@
 # Introduction
 
-This healthcheck uses Ansible playbooks and orachk framework as engine. It can be used on IaaS, DBCS or JCS instances running on top of Oracle Cloud Machine, Oracle Public Cloud (gen1) or Oracle Bare Metal Cloud.
+This healthcheck uses Ansible playbooks and orachk framework as engine. It can be used on IaaS, DBCS or JCS instances running on top of Oracle Cloud at Customer, Oracle Cloud Infrastructure Classic (gen1) or Oracle Cloud Infrastructure (OCI).
 
 # Use Case
 
