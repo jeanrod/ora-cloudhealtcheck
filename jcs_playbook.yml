@@ -1,0 +1,69 @@
+# $Header: 
+#
+# jcs_playbook.yml
+#
+#    NAME
+#      jcs_playbook.yml - Playbook used to install and run orachk against Oracle Linux (IaaS) instances.
+#
+#    DESCRIPTION
+#      Playbook used to install and run orachk against Oracle Linux (IaaS) instances.
+#
+#    NOTES
+#      Usage: ansible-playbook jcs_playbook.yml
+#      Inventory File (Default): /etc/ansible/hosts
+#
+#    AUTHOR
+#      Jean Rodrigues 
+#
+#    MODIFIED   (MM/DD/YY)
+#    JEANROD    08/03/17 - Creation
+
+---
+- hosts: jcs
+
+  vars:
+    orachk_file: orachk.zip
+    orachk_dest: /var/opt/oracle/orachk
+
+  remote_user: opc
+  become: yes
+
+  tasks:
+    - name: Create orachk directory
+      file: dest={{ orachk_dest }} mode=755 owner=root group=root state=directory
+
+    - name: Remove orachk archive
+      file: dest=/tmp/{{ orachk_file }} state=absent
+
+    - name: Copy orachk archive
+      copy: src={{ orachk_file }} dest=/tmp/{{ orachk_file }} owner=root group=root
+
+    - name: Install/update orachk
+      unarchive: src=/tmp/{{ orachk_file }} dest={{ orachk_dest }} remote_src=True
+
+    - name: Run orachk
+      shell: "{{ orachk_dest }}/orachk -profile sysadmin -s"
+
+    - name: Identify the exachk output files directory
+      shell: "ls -t {{ orachk_dest }} |grep -v '.zip' | head -1"
+      register: output_dir
+
+    - name: Copy the orachk results
+      fetch: src="{{ orachk_dest }}/{{ output_dir.stdout }}/upload/{{ ansible_hostname }}_orachk_results.json" dest=workdir fail_on_missing=yes
+    
+    - name: Format JSON
+      shell: ./scripts/orachk_json_formatter.sh workdir/{{ inventory_hostname }}{{ orachk_dest }}/{{ output_dir.stdout }}/upload/{{ ansible_hostname }}_orachk_results.json
+      delegate_to: localhost
+
+    - name: Register JSON output
+      shell: cat workdir/{{ inventory_hostname }}{{ orachk_dest }}/{{ output_dir.stdout }}/upload/{{ ansible_hostname }}_orachk_results.json
+      register: results_json
+      delegate_to: localhost
+
+    - set_fact: results_json_var="{{ results_json.stdout | from_json }}"
+      delegate_to: localhost
+
+    - name: Print orachk findings when it reports either WARNING or FAIL
+      debug: msg="Hostname -> {{ ansible_hostname }} | Orachk Status -> {{ item.orachkAlertType }} | Orachk Type -> {{ item.orachkType }} | Orachk Message -> {{ item.orachkmessage }}"
+      with_items: "{{ results_json_var }}"
+      when: item.orachkName != 'Error' and ((item.orachkAlertType =='WARNING' or item.orachkAlertType =='FAIL') and item.orachkStatusCode != '0')

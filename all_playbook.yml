@@ -1,0 +1,5 @@
+---
+
+- include: iaas_playbook.yml
+- include: dbcs_playbook.yml
+- include: jcs_playbook.yml
